@@ -1,374 +1,299 @@
-# MERN Backend Boilerplate
+# MERN Backend Boilerplate (Updated Config Version)
 
-A production-ready backend setup for MERN projects using Node.js, Express, MongoDB, Cloudinary, and Multer. This README contains:
-
-* All shell commands to create the project, install dependencies, and create files/folders.
-* A recommended file/folder structure.
-* All essential configuration files and production-ready middlewares (DB, Cloudinary, Multer, logging, security, rate-limiting).
-* A simple async handler to avoid repetitive `try/catch` blocks.
-* A global error handler and not-found handler.
-* `app.js` and `server.js` (index) that connect to DB first, then start the server.
-
-> Use this document as a template for any MERN backend project. Copy the repository, update environment variables, and add routes/controllers/models as needed.
+A production-ready backend setup for MERN projects using Node.js, Express, MongoDB, Cloudinary, and Multer. This version uses your provided configuration pattern (with custom error handling, async handler, and API response classes).
 
 ---
 
-## Prerequisites
-
-* Node.js (>= 18 recommended)
-* npm or yarn
-* MongoDB URI (Atlas or self-hosted)
-* Cloudinary account (optional, required for file uploads)
-
----
-
-## Step 1 — Create project & install dependencies
-
-### Create project folder
+## Step 1 — Project Setup
 
 ```bash
-# Create project directory and enter it
-mkdir mern-backend-boilerplate && cd mern-backend-boilerplate
-
-# Initialize git (optional)
-git init
-```
-
-### Initialize npm and install dependencies
-
-```bash
-# Initialize package.json
+mkdir mern-backend && cd mern-backend
 npm init -y
 
-# Install runtime dependencies
-npm install express mongoose dotenv cors helmet compression express-rate-limit xss-clean hpp cookie-parser morgan winston bcryptjs jsonwebtoken cloudinary multer multer-storage-cloudinary
+npm install express mongoose dotenv cors cookie-parser multer cloudinary bcryptjs jsonwebtoken
 
-# Install developer dependencies
-npm install -D nodemon cross-env eslint prettier eslint-config-prettier eslint-plugin-node
+# Dev dependencies
+npm install -D nodemon cross-env
 ```
-
-> The key packages:
->
-> * `express`, `mongoose` — core server & DB
-> * security: `helmet`, `xss-clean`, `hpp`, `express-rate-limit`
-> * logging: `morgan`, `winston`
-> * file uploads & Cloudinary: `multer`, `multer-storage-cloudinary`, `cloudinary`
-> * `dotenv` for environment variables
 
 ---
 
-## Step 2 — Create folders & files
-
-Run these shell commands to create the standard file structure and empty files (works in Unix-like shells):
+## Step 2 — Folder Structure
 
 ```bash
-# Create folders
-mkdir -p src/config src/controllers src/models src/routes src/middlewares src/utils src/validations src/services src/uploads
+mkdir -p src/{config,controllers,models,routes,middlewares,utilities,database,constants,uploads}
 
-# Create entry files
-touch src/server.js src/app.js
+# Entry files
+touch src/app.js src/server.js
 
-# Configs
-touch src/config/db.js src/config/cloudinary.js src/config/multer.js
+# Config files
+touch src/config/cloudinary.js
 
-# Middleware
-touch src/middlewares/errorHandler.js src/middlewares/asyncHandler.js src/middlewares/notFound.js src/middlewares/logger.js
+# Database file
+touch src/database/db.js
 
-# Utils
-touch src/utils/logger.js
+# Utilities
+touch src/utilities/{CustomError.js,GlobalErrorHandler.js,AsyncHandler.js,APIResponse.js}
 
-# Example index route
-mkdir -p src/routes
-touch src/routes/index.js
+# Example route/controller
+touch src/routes/index.js src/controllers/health.controller.js
 
-# Example controller (no API logic — just an example)
- touch src/controllers/health.controller.js
-
-# Gitignore and env
+# Env files
 touch .env .env.example .gitignore
-
-# npm scripts helper
-touch nodemon.json
 ```
-
-You can add more files later (controllers, models, validations, services, etc.).
 
 ---
 
 ## Step 3 — `.env.example`
 
-Create `.env.example` to show required environment variables (do not commit `.env` with secrets):
-
 ```env
-# Server
-PORT=5000
+PORT=3000
+BASE_URL=/api/v1
 NODE_ENV=development
-
-# MongoDB
-MONGO_URI=mongodb+srv://<username>:<password>@cluster0.mongodb.net/myDatabase?retryWrites=true&w=majority
-
-# Cloudinary
-CLOUDINARY_CLOUD_NAME=your_cloud_name
-CLOUDINARY_API_KEY=your_api_key
-CLOUDINARY_API_SECRET=your_api_secret
-
-# Other
-JWT_SECRET=ReplaceMeWithASecret
-```
-
-Add `.env` to `.gitignore`:
-
-```
-node_modules
-.env
-.DS_Store
-/uploads
+MONGODB_URL=mongodb+srv://<username>:<password>@cluster.mongodb.net
+CLOUD_NAME=your_cloud_name
+CLOUD_API_KEY=your_cloud_key
+CLOUD_API_SECRECT=your_cloud_secret
+dbName=mern_database
 ```
 
 ---
 
-## Step 4 — Config files
-
-### `src/config/db.js`
+## Step 4 — `src/app.js`
 
 ```js
-// src/config/db.js
-const mongoose = require('mongoose');
-const logger = require('../utils/logger');
+const express = require("express");
+const cors = require("cors");
+const cookieParser = require("cookie-parser");
+const { GlobalErrorHandler } = require("./utilities/GlobalErrorHandler");
 
-const connectDB = async (mongoURI) => {
-  try {
-    await mongoose.connect(mongoURI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
+const app = express();
+const apiVersion = process.env.BASE_URL || "/api/v1";
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+app.use(express.static("public"));
+
+// Routes
+app.use(apiVersion, require("./routes/index"));
+
+// Global Error Handler
+app.use(GlobalErrorHandler);
+
+module.exports = app;
+```
+
+---
+
+## Step 5 — `src/server.js`
+
+```js
+require("dotenv").config();
+const { connectDB } = require("./database/db");
+const app = require("./app");
+
+const port = process.env.PORT || 3000;
+
+connectDB()
+  .then(() => {
+    app.listen(port, () => {
+      console.log(`Server running on http://localhost:${port}`);
     });
-    logger.info('MongoDB connected');
-  } catch (err) {
-    logger.error('MongoDB connection error:', err);
-    // Rethrow so caller can decide to exit
-    throw err;
+  })
+  .catch((err) => {
+    console.log("DB Connection Failed", err);
+  });
+```
+
+---
+
+## Step 6 — Database Connection (`src/database/db.js`)
+
+```js
+require("dotenv").config();
+const mongoose = require("mongoose");
+const { dbName } = require("../constants/constant");
+
+const connectDB = async () => {
+  try {
+    const connectionInstance = await mongoose.connect(
+      `${process.env.MONGODB_URL}/${dbName}`
+    );
+    console.log(`MongoDB Connected: ${connectionInstance.connection.host}`);
+  } catch (error) {
+    console.log("MongoDB connection FAILED", error);
+    process.exit(1);
   }
 };
 
-module.exports = connectDB;
+module.exports = { connectDB };
 ```
-
-### `src/config/cloudinary.js`
-
-```js
-// src/config/cloudinary.js
-const cloudinary = require('cloudinary').v2;
-
-const configureCloudinary = ({ cloud_name, api_key, api_secret }) => {
-  cloudinary.config({
-    cloud_name,
-    api_key,
-    api_secret,
-  });
-
-  return cloudinary;
-};
-
-module.exports = configureCloudinary;
-```
-
-### `src/config/multer.js`
-
-We'll configure Multer + `multer-storage-cloudinary` to directly upload to Cloudinary.
-
-```js
-// src/config/multer.js
-const multer = require('multer');
-const { CloudinaryStorage } = require('multer-storage-cloudinary');
-const cloudinary = require('cloudinary').v2;
-
-const getMulterUpload = () => {
-  const storage = new CloudinaryStorage({
-    cloudinary: cloudinary,
-    params: {
-      folder: 'mern_app_uploads',
-      allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'gif'],
-      transformation: [{ width: 1500, crop: 'limit' }],
-    },
-  });
-
-  const parser = multer({
-    storage,
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
-  });
-
-  return parser;
-};
-
-module.exports = getMulterUpload;
-```
-
-> If you prefer streaming uploads (more control), you can use multer memoryStorage and `cloudinary.uploader.upload_stream()` in a service.
 
 ---
 
-## Step 5 — Utilities: logger
-
-### `src/utils/logger.js`
+## Step 7 — Cloudinary Config (`src/config/cloudinary.js`)
 
 ```js
-// src/utils/logger.js
-const { createLogger, format, transports } = require('winston');
+require("dotenv").config();
+const cloudinary = require("cloudinary").v2;
+const { CustomError } = require("../utilities/CustomError");
+const fs = require("fs");
 
-const logger = createLogger({
-  level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
-  format: format.combine(
-    format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-    format.errors({ stack: true }),
-    format.splat(),
-    format.json()
-  ),
-  transports: [
-    new transports.Console({
-      format: format.combine(format.colorize(), format.simple()),
-    }),
-  ],
+cloudinary.config({
+  cloud_name: process.env.CLOUD_NAME,
+  api_key: process.env.CLOUD_API_KEY,
+  api_secret: process.env.CLOUD_API_SECRECT,
 });
 
-module.exports = logger;
+// Upload Image
+exports.uploadImage = async (filePath) => {
+  try {
+    if (!filePath && !fs.existsSync(filePath)) {
+      throw new CustomError(400, "File path is required");
+    }
+
+    const uploadedImage = await cloudinary.uploader.upload(filePath, {
+      resource_type: "image",
+      quality: "auto",
+    });
+
+    if (uploadedImage) {
+      fs.unlinkSync(filePath);
+      return { public_id: uploadedImage.public_id, url: uploadedImage.url };
+    }
+  } catch (error) {
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    console.log("Error from Cloudinary upload", error);
+    throw new CustomError(500, "Cloudinary upload failed: " + error.message);
+  }
+};
+
+// Delete Image
+exports.deleteImage = async (public_id) => {
+  try {
+    if (!public_id) throw new CustomError(400, "Public id is required");
+    const deleted = await cloudinary.uploader.destroy(public_id);
+    if (deleted) return true;
+  } catch (error) {
+    console.log("Error deleting image:", error.message);
+    throw new CustomError(500, "Failed to delete image: " + error.message);
+  }
+};
 ```
 
 ---
 
-## Step 6 — Async handler & middlewares
+## Step 8 — Utilities
 
-### `src/middlewares/asyncHandler.js`
-
-A tiny helper to avoid repeating `try/catch` in controllers.
+### `src/utilities/CustomError.js`
 
 ```js
-// src/middlewares/asyncHandler.js
-module.exports = (fn) => (req, res, next) => {
-  Promise.resolve(fn(req, res, next)).catch(next);
-};
-```
+class CustomError extends Error {
+  constructor(statusCode, message = "Something went wrong", errors = [], stack = "") {
+    super(message);
+    this.statusCode = statusCode;
+    this.data = null;
+    this.success = false;
+    this.errors = errors;
 
-### `src/middlewares/notFound.js`
-
-```js
-// src/middlewares/notFound.js
-module.exports = (req, res, next) => {
-  res.status(404).json({
-    success: false,
-    message: `Not Found - ${req.originalUrl}`,
-  });
-};
-```
-
-### `src/middlewares/errorHandler.js`
-
-A robust global error handler.
-
-```js
-// src/middlewares/errorHandler.js
-const logger = require('../utils/logger');
-
-module.exports = (err, req, res, next) => {
-  // If headers already sent, delegate to default Express handler
-  if (res.headersSent) {
-    return next(err);
+    if (stack) {
+      this.stack = stack;
+    } else {
+      Error.captureStackTrace(this, this.constructor);
+    }
   }
+}
 
-  const statusCode = err.statusCode || 500;
-  const response = {
-    success: false,
-    message: err.message || 'Internal Server Error',
+module.exports = { CustomError };
+```
+
+### `src/utilities/AsyncHandler.js`
+
+```js
+exports.AsyncHandler = (func) => {
+  return async (req, res, next) => {
+    try {
+      await func(req, res);
+    } catch (error) {
+      next(error);
+    }
   };
-
-  // Provide detailed error stack in non-production
-  if (process.env.NODE_ENV !== 'production') {
-    response.stack = err.stack;
-    response.meta = err.meta || null;
-  }
-
-  logger.error(err);
-
-  res.status(statusCode).json(response);
 };
 ```
 
----
-
-## Step 7 — Security middlewares and core app
-
-### `src/app.js`
+### `src/utilities/APIResponse.js`
 
 ```js
-// src/app.js
-const express = require('express');
-const helmet = require('helmet');
-const compression = require('compression');
-const rateLimit = require('express-rate-limit');
-const xss = require('xss-clean');
-const hpp = require('hpp');
-const cors = require('cors');
-const morgan = require('morgan');
-const cookieParser = require('cookie-parser');
-
-const notFound = require('./middlewares/notFound');
-const errorHandler = require('./middlewares/errorHandler');
-const logger = require('./utils/logger');
-
-const router = require('./routes'); // index route aggregator
-
-const createApp = () => {
-  const app = express();
-
-  // Basic middlewares
-  app.use(helmet());
-  app.use(compression());
-  app.use(express.json({ limit: '10kb' }));
-  app.use(express.urlencoded({ extended: true }));
-  app.use(cookieParser());
-  app.use(xss());
-  app.use(hpp());
-  app.use(cors());
-
-  // Logging
-  if (process.env.NODE_ENV === 'development') {
-    app.use(morgan('dev'));
+class APIResponse {
+  constructor(statusCode, message = "Success", data) {
+    this.statusCode = statusCode;
+    this.message = message;
+    this.data = data;
+    this.success = statusCode < 400;
   }
 
-  // Rate limiter
-  const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // limit each IP to 100 requests per windowMs
+  static success(res, statusCode, message, data) {
+    return res.status(statusCode).json(new APIResponse(statusCode, message, data));
+  }
+}
+
+module.exports = { APIResponse };
+```
+
+### `src/utilities/GlobalErrorHandler.js`
+
+```js
+require("dotenv").config();
+
+const developmentResponse = (error, res) => {
+  const statusCode = error.statusCode || 500;
+  return res.status(statusCode).json({
+    statusCode: error.statusCode,
+    message: error.message,
+    data: error.data,
+    errorStack: error.stack,
   });
-  app.use('/api', limiter);
-
-  // Routes
-  app.use('/api', router);
-
-  // 404
-  app.use(notFound);
-
-  // Global error handler
-  app.use(errorHandler);
-
-  return app;
 };
 
-module.exports = createApp;
+const productionResponse = (error, res) => {
+  const statusCode = error.statusCode || 500;
+  if (error.isOperationalError) {
+    return res.status(statusCode).json({
+      statusCode: error.statusCode,
+      message: error.message,
+    });
+  } else {
+    return res.status(statusCode).json({
+      status: "!OK",
+      message: "Something went wrong, please try again later!",
+    });
+  }
+};
+
+exports.GlobalErrorHandler = (error, req, res, next) => {
+  if (process.env.NODE_ENV === "development") {
+    developmentResponse(error, res);
+  } else {
+    productionResponse(error, res);
+  }
+};
 ```
 
 ---
 
-## Step 8 — Route & controller examples
+## Step 9 — Example Route and Controller
 
 ### `src/routes/index.js`
 
 ```js
-// src/routes/index.js
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const { healthCheck } = require('../controllers/health.controller');
+const { healthCheck } = require("../controllers/health.controller");
 
-router.get('/health', healthCheck);
+router.get("/health", healthCheck);
 
 module.exports = router;
 ```
@@ -376,123 +301,33 @@ module.exports = router;
 ### `src/controllers/health.controller.js`
 
 ```js
-// src/controllers/health.controller.js
+const { APIResponse } = require("../utilities/APIResponse");
+
 exports.healthCheck = (req, res) => {
-  res.json({ success: true, uptime: process.uptime(), time: new Date().toISOString() });
+  APIResponse.success(res, 200, "Server is running", {
+    uptime: process.uptime(),
+    time: new Date().toISOString(),
+  });
 };
 ```
 
 ---
 
-## Step 9 — Server entry: connect to DB, then start server
+## Step 10 — Run the server
 
-### `src/server.js`
-
-```js
-// src/server.js
-require('dotenv').config();
-const http = require('http');
-const createApp = require('./app');
-const connectDB = require('./config/db');
-const configureCloudinary = require('./config/cloudinary');
-const getMulterUpload = require('./config/multer');
-const logger = require('./utils/logger');
-
-const PORT = process.env.PORT || 5000;
-
-const startServer = async () => {
-  try {
-    // 1. Configure Cloudinary early (so multer storage has config)
-    if (process.env.CLOUDINARY_CLOUD_NAME) {
-      configureCloudinary({
-        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-        api_key: process.env.CLOUDINARY_API_KEY,
-        api_secret: process.env.CLOUDINARY_API_SECRET,
-      });
-    }
-
-    // 2. Connect to MongoDB
-    await connectDB(process.env.MONGO_URI);
-
-    // 3. Create express app
-    const app = createApp();
-
-    // 4. Create HTTP server
-    const server = http.createServer(app);
-
-    // 5. Start listening
-    server.listen(PORT, () => {
-      logger.info(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
-    });
-
-    // Graceful shutdown (example)
-    process.on('unhandledRejection', (reason, p) => {
-      logger.error('Unhandled Rejection at: Promise', p, 'reason:', reason);
-    });
-
-    process.on('uncaughtException', (err) => {
-      logger.error('Uncaught Exception! Shutting down...');
-      logger.error(err);
-      process.exit(1);
-    });
-  } catch (err) {
-    logger.error('Failed to start server:', err);
-    process.exit(1);
-  }
-};
-
-startServer();
+```bash
+npm run dev
 ```
 
----
-
-## Step 10 — Additional production notes
-
-* Use a process manager like `pm2` or run behind Docker + Kubernetes in production.
-* Add rate-limiting, request logging to file, and central logging (ELK or a hosted log provider) for production.
-* Use HTTPS with a reverse proxy (Nginx or cloud provider load balancer).
-* Store secrets in a secret manager (AWS Secrets Manager, Google Secret Manager, or environment variables in CI/CD) — do not commit `.env`.
-* Add tests (Jest + Supertest) for endpoints.
-
----
-
-## Package.json example scripts
+### Example script in `package.json`
 
 ```json
-{
-  "scripts": {
-    "dev": "cross-env NODE_ENV=development nodemon src/server.js",
-    "start": "cross-env NODE_ENV=production node src/server.js",
-    "lint": "eslint . --ext .js",
-    "format": "prettier --write ."
-  }
+"scripts": {
+  "dev": "nodemon src/server.js",
+  "start": "node src/server.js"
 }
 ```
 
 ---
 
-## GitHub README Tips
-
-* Keep `.env.example` and instructions for setting required variables.
-* Document how to run locally, how to run tests, and how to deploy (Docker/Heroku/Render/etc).
-* Include examples of how to upload a file to the upload endpoint (when you add endpoints later).
-
----
-
-## Final checklist (before commit)
-
-* [ ] Remove any debug credentials from code
-* [ ] Add `.env` to `.gitignore`
-* [ ] Run `npm run lint` and `npm run format`
-* [ ] Add Dockerfile and `docker-compose.yml` if needed
-* [ ] Set up CI/CD (GitHub Actions example included if desired)
-
----
-
-If you want, I can also:
-
-* Generate a ready-to-commit repository (zipped) containing these files pre-filled.
-* Add Dockerfile + docker-compose + GitHub Actions workflow.
-* Add ESLint + Prettier config files.
-
-Tell me which one you'd like next.
+✅ Now you have a **production-level MERN backend setup** with a clean modular structure, async handling, global error management, and Cloudinary upload utilities ready for future use.
