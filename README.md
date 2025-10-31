@@ -1,5 +1,4 @@
-# MERN Backend Boilerplate (Updated Config Version)
-
+# MERN Backend Boilerplate 
 A production-ready backend setup for MERN projects using Node.js, Express, MongoDB, Cloudinary, and Multer. This version uses your provided configuration pattern (with custom error handling, async handler, and API response classes).
 
 ---
@@ -36,7 +35,9 @@ touch src/database/db.js
 touch src/utilities/{CustomError.js,GlobalErrorHandler.js,AsyncHandler.js,APIResponse.js}
 
 # Example route/controller
-touch src/routes/index.js src/controllers/health.controller.js
+mkdir src/routes/api
+touch src/routes/index.js src/routes/api/example.api.js src/controllers/example.controller.js
+
 
 # Env files
 touch .env .env.example .gitignore
@@ -48,13 +49,20 @@ touch .env .env.example .gitignore
 
 ```env
 PORT=3000
-BASE_URL=/api/v1
-NODE_ENV=development
+dbName=mern_database
 MONGODB_URL=mongodb+srv://<username>:<password>@cluster.mongodb.net
+
+#api version
+BASE_URL=/api/v1
+
+#nodeEnv
+NODE_ENV=development
+
+#cloudinary
 CLOUD_NAME=your_cloud_name
 CLOUD_API_KEY=your_cloud_key
 CLOUD_API_SECRECT=your_cloud_secret
-dbName=mern_database
+
 ```
 
 ---
@@ -68,7 +76,7 @@ const cookieParser = require("cookie-parser");
 const { GlobalErrorHandler } = require("./utilities/GlobalErrorHandler");
 
 const app = express();
-const apiVersion = process.env.BASE_URL || "/api/v1";
+const apiVersion = process.env.BASE_URL;
 
 // Middleware
 app.use(cors());
@@ -95,7 +103,7 @@ require("dotenv").config();
 const { connectDB } = require("./database/db");
 const app = require("./app");
 
-const port = process.env.PORT || 3000;
+const port = process.env.PORT;
 
 connectDB()
   .then(() => {
@@ -282,6 +290,42 @@ exports.GlobalErrorHandler = (error, req, res, next) => {
 };
 ```
 
+## 🔧 Usage Examples
+
+### 📸 Cloudinary
+
+```js
+// Upload Image
+const { uploadImage } = require("../config/cloudinary");
+await uploadImage(filePath);
+
+// Delete Image
+const { deleteImage } = require("../config/cloudinary");
+await deleteImage(public_id);
+```
+
+### 📦 API Response
+
+```js
+const { APIResponse } = require("../utilities/APIResponse");
+APIResponse.success(res, 200, "Fetched successfully", data);
+```
+
+### ⚙️ Async Handler
+
+```js
+const { AsyncHandler } = require("../utilities/AsyncHandler");
+router.get("/user", AsyncHandler(async (req, res) => { /* your logic */ }));
+```
+
+### ❌ Custom Error
+
+```js
+const { CustomError } = require("../utilities/CustomError");
+throw new CustomError(400, "Invalid request");
+```
+
+
 ---
 
 ## Step 9 — Example Route and Controller
@@ -330,4 +374,5 @@ npm run dev
 
 ---
 
-✅ Now you have a **production-level MERN backend setup** with a clean modular structure, async handling, global error management, and Cloudinary upload utilities ready for future use.
+
+
