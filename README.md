@@ -31,6 +31,9 @@ touch src/config/cloudinary.js
 # Database file
 touch src/database/db.js
 
+#constents file
+touch src/constents/constent.js
+
 # Utilities
 touch src/utilities/{CustomError.js,GlobalErrorHandler.js,AsyncHandler.js,APIResponse.js}
 
@@ -138,6 +141,13 @@ const connectDB = async () => {
 };
 
 module.exports = { connectDB };
+```
+
+## constents (`src/constents/constent.js`)
+
+```js
+const dbName = "admin_system_db";
+module.exports = { dbName };
 ```
 
 ---
